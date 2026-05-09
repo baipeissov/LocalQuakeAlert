@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalQuakeAlert — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0c10;
+            --surface: #111318;
+            --surface2: #181c24;
+            --border: rgba(255, 255, 255, 0.07);
+            --border2: rgba(255, 255, 255, 0.13);
+            --text: #e8eaf0;
+            --muted: #6b7280;
+            --accent: #00d4a0;
+            --accent2: #0066ff;
+            --danger: #ff4040;
+            --warn: #f59e0b;
+            --mono: 'Space Mono', monospace;
+            --sans: 'DM Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 14px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* SCAN LINE OVERLAY */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px);
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--mono);
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            border: 1.5px solid var(--accent);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .logo-title {
+            color: var(--text);
+        }
+
+        .logo-title span {
+            color: var(--accent);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(0, 212, 160, 0.08);
+            border: 1px solid rgba(0, 212, 160, 0.25);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            transition: all 0.3s;
+        }
+
+        .status-pill.alarm {
+            background: rgba(255, 64, 64, 0.1);
+            border-color: rgba(255, 64, 64, 0.4);
+            color: var(--danger);
+            animation: alarmPulse 1s infinite;
+        }
+
+        @keyframes alarmPulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .6
+            }
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .status-pill.alarm .status-dot {
+            background: var(--danger);
+        }
+
+        .unit-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 0.05em;
+        }
+
+        /* LAYOUT */
+        .main {
+            padding: 24px 28px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* METRICS ROW */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--accent);
+        }
+
+        .metric-card.danger::after {
+            background: var(--danger);
+        }
+
+        .metric-card.warn::after {
+            background: var(--warn);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: var(--mono);
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 26px;
+            font-family: var(--mono);
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .metric-value.ok {
+            color: var(--accent);
+        }
+
+        .metric-value.danger {
+            color: var(--danger);
+        }
+
+        .metric-value.warn {
+            color: var(--warn);
+        }
+
+        .metric-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* ML BADGE */
+        .ml-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(0, 102, 255, 0.1);
+            border: 1px solid rgba(0, 102, 255, 0.3);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: #60a5fa;
+            letter-spacing: 0.05em;
+            margin-top: 5px;
+        }
+
+        /* MAIN GRID */
+        .grid2 {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .grid2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* CHART PANEL */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-family: var(--mono);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .panel-body {
+            padding: 16px 18px;
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 200px;
+        }
+
+        canvas {
+            width: 100% !important;
+        }
+
+        /* BUTTONS */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--border2);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 7px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            background: var(--surface2);
+            border-color: var(--accent);
+        }
+
+        .btn.danger-btn {
+            border-color: rgba(255, 64, 64, 0.4);
+            color: var(--danger);
+        }
+
+        .btn.danger-btn:hover {
+            background: rgba(255, 64, 64, 0.08);
+        }
+
+        /* EVENT LOG */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .event-item {
+            display: grid;
+            grid-template-columns: 72px 70px 1fr 60px;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 11px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .event-item:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .evt-time {
+            color: var(--muted);
+        }
+
+        .evt-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .evt-ok {
+            background: rgba(0, 212, 160, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 160, 0.2);
+        }
+
+        .evt-warn {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warn);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .evt-alarm {
+            background: rgba(255, 64, 64, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(255, 64, 64, 0.3);
+        }
+
+        .evt-ml {
+            background: rgba(0, 102, 255, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(0, 102, 255, 0.2);
+        }
+
+        .evt-desc {
+            color: var(--text);
+            font-size: 11px;
+        }
+
+        .evt-mag {
+            text-align: right;
+            color: var(--muted);
+        }
+
+        /* CHANNELS */
+        .channel-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .channel-row:last-child {
+            border-bottom: none;
+        }
+
+        .channel-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+        }
+
+        .ch-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .ch-tg {
+            background: rgba(0, 136, 204, 0.15);
+        }
+
+        .ch-push {
+            background: rgba(0, 212, 160, 0.1);
+        }
+
+        .ch-mqtt {
+            background: rgba(255, 152, 0, 0.1);
+        }
+
+        .ch-ml {
+            background: rgba(0, 102, 255, 0.1);
+        }
+
+        .ch-status {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 4px;
+        }
+
+        .ch-on {
+            background: rgba(0, 212, 160, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 160, 0.2);
+        }
+
+        .ch-off {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        /* BOTTOM ROW */
+        .grid3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .grid3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ML PANEL */
+        .ml-panel {
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.06) 0%, rgba(0, 212, 160, 0.04) 100%);
+            border: 1px solid rgba(0, 102, 255, 0.2);
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+
+        .ml-title {
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            color: #60a5fa;
+            margin-bottom: 12px;
+        }
+
+        .ml-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 12px;
+        }
+
+        .ml-row:last-child {
+            border-bottom: none;
+        }
+
+        .ml-key {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        .ml-val {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .ml-confidence-bar {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .ml-confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent2), var(--accent));
+            border-radius: 2px;
+            transition: width 0.8s ease;
+        }
+
+        /* SETTINGS */
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-key {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .setting-input {
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            width: 70px;
+            text-align: right;
+            padding: 4px 8px;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .setting-input:focus {
+            border-color: var(--accent);
+        }
+
+        /* ALARM OVERLAY */
+        #alarm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(255, 40, 40, 0.06);
+            pointer-events: none;
+            animation: alarmFlash 0.5s infinite;
+        }
+
+        @keyframes alarmFlash {
+
+            0%,
+            100% {
+                opacity: 0
+            }
+
+            50% {
+                opacity: 1
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="alarm-overlay"></div>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon">⟁</div>
+            <span class="logo-title">LOCAL<span>QUAKE</span>ALERT</span>
+        </div>
+        <div class="header-right">
+            <span class="unit-label">ALMATY · UNIT-01</span>
+            <div class="status-pill" id="status-pill">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">ARMED · MONITORING</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <!-- METRICS -->
+        <div class="metrics-row">
+            <div class="metric-card">
+                <div class="metric-label">MAGNITUDE</div>
+                <div class="metric-value ok" id="m-mag">0.003</div>
+                <div class="metric-sub">g · acceleration</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">STA/LTA RATIO</div>
+                <div class="metric-value ok" id="m-stalta">1.02</div>
+                <div class="metric-sub">threshold: 2.5</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Z-SCORE</div>
+                <div class="metric-value ok" id="m-zscore">0.3</div>
+                <div class="metric-sub">threshold: 3.5</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">ML PREDICTION</div>
+                <div class="metric-value ok" id="m-ml">NORMAL</div>
+                <div class="ml-badge" id="m-conf">● CONF: 97.2%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">RESPONSE TIME</div>
+                <div class="metric-value ok">&lt;5ms</div>
+                <div class="metric-sub">target: &lt;500ms</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">BATTERY</div>
+                <div class="metric-value ok" id="m-battery">87%</div>
+                <div class="metric-sub" id="m-battery-h">~56h remaining</div>
+            </div>
+        </div>
+
+        <!-- CHART + CHANNELS -->
+        <div class="grid2">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">LIVE SEISMIC FEED · MPU-6050 · 100Hz</span>
+                    <div class="btn-row">
+                        <button class="btn danger-btn" onclick="triggerQuake()">⚡ SIMULATE QUAKE</button>
+                        <button class="btn" onclick="triggerStep()">👟 FOOTSTEP</button>
+                        <button class="btn" onclick="triggerDoor()">🚪 DOOR SLAM</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrap">
+                        <canvas id="seismicChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">ALERT CHANNELS</span>
+                </div>
+                <div class="panel-body">
+                    <div class="channel-row">
+                        <div class="channel-name">
+                            <div class="ch-icon ch-tg">✈</div>Telegram Bot
+                        </div>
+                        <span class="ch-status ch-on">LIVE</span>
+                    </div>
+                    <div class="channel-row">
+                        <div class="channel-name">
+                            <div class="ch-icon ch-push">🔔</div>Push (PWA)
+                        </div>
+                        <span class="ch-status ch-on">LIVE</span>
+                    </div>
+                    <div class="channel-row">
+                        <div class="channel-name">
+                            <div class="ch-icon ch-mqtt">⚡</div>MQTT Broker
+                        </div>
+                        <span class="ch-status ch-on">LIVE</span>
+                    </div>
+                    <div class="channel-row">
+                        <div class="channel-name">
+                            <div class="ch-icon ch-ml">🧠</div>ML Classifier
+                        </div>
+                        <span class="ch-status ch-on">ACTIVE</span>
+                    </div>
+                    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+                        <div
+                            style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px">
+                            <span>UPTIME</span><span style="color:var(--accent)">14h 32m</span>
+                        </div>
+                        <div
+                            style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px">
+                            <span>FALSE POSITIVES</span><span style="color:var(--accent)">0 / 847 events</span>
+                        </div>
+                        <div
+                            style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted)">
+                            <span>SENSOR</span><span style="color:var(--accent)">MPU-6050 + SW-420</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM ROW -->
+        <div class="grid3">
+
+            <!-- EVENT LOG -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">EVENT LOG</span>
+                </div>
+                <div class="panel-body" style="padding:0 18px">
+                    <div class="event-list" id="event-list">
+                        <div class="event-item">
+                            <span class="evt-time">09:42:11</span>
+                            <span class="evt-badge evt-ok">OK</span>
+                            <span class="evt-desc">Footstep — filtered</span>
+                            <span class="evt-mag">0.024g</span>
+                        </div>
+                        <div class="event-item">
+                            <span class="evt-time">09:38:05</span>
+                            <span class="evt-badge evt-warn">WARN</span>
+                            <span class="evt-desc">Door slam — Z 2.1</span>
+                            <span class="evt-mag">0.041g</span>
+                        </div>
+                        <div class="event-item">
+                            <span class="evt-time">09:22:17</span>
+                            <span class="evt-badge evt-ml">ML:OK</span>
+                            <span class="evt-desc">Truck — model confident</span>
+                            <span class="evt-mag">0.018g</span>
+                        </div>
+                        <div class="event-item">
+                            <span class="evt-time">09:12:48</span>
+                            <span class="evt-badge evt-ok">OK</span>
+                            <span class="evt-desc">Heavy traffic — filtered</span>
+                            <span class="evt-mag">0.009g</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ML PANEL -->
+            <div class="ml-panel">
+                <div class="ml-title">🧠 ML MODEL — CLASSIFICATION</div>
+                <!-- ===================================================
+           WHERE TO PLUG IN YOUR ML MODEL
+           ===================================================
+           This panel shows results from server.js /api/predict
+           Your model runs in server.js → runMLModel() function
+           See server.js for the exact integration point.
+           =================================================== -->
+                <div class="ml-row">
+                    <span class="ml-key">MODEL TYPE</span>
+                    <span class="ml-val" id="ml-type">Random Forest</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-key">PREDICTION</span>
+                    <span class="ml-val" id="ml-pred" style="color:var(--accent)">NORMAL</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-key">CONFIDENCE</span>
+                    <span class="ml-val" id="ml-conf-val">97.2%</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-key">FEATURES IN</span>
+                    <span class="ml-val">mag, Z, STA/LTA</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-key">LATENCY</span>
+                    <span class="ml-val" id="ml-latency">1.2ms</span>
+                </div>
+                <div class="ml-confidence-bar" style="margin-top:12px">
+                    <div class="ml-confidence-fill" id="ml-conf-bar" style="width:97.2%"></div>
+                </div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px">
+                    CONFIDENCE SCORE
+                </div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">THRESHOLDS</span>
+                </div>
+                <div class="panel-body">
+                    <div class="setting-row">
+                        <span class="setting-key">Z-SCORE ALARM</span>
+                        <input class="setting-input" id="thr-z" value="3.5" onchange="updateThresholds()">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-key">STA/LTA ALARM</span>
+                        <input class="setting-input" id="thr-stalta" value="2.5" onchange="updateThresholds()">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-key">LTA WINDOW (s)</span>
+                        <input class="setting-input" id="thr-lta" value="100" onchange="updateThresholds()">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-key">ALARM LATCH (s)</span>
+                        <input class="setting-input" id="thr-latch" value="30" onchange="updateThresholds()">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-key">ML ENABLED</span>
+                        <input class="setting-input" id="thr-ml" value="true" onchange="updateThresholds()">
+                    </div>
+                    <button class="btn" style="width:100%;margin-top:12px;text-align:center" onclick="pushThresholds()">
+                        PUSH TO DEVICE →
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+        // ─── CONFIG ───────────────────────────────────────────────────
+        const SERVER_URL = 'http://localhost:3000';  // change to your server IP
+        const WS_URL = 'ws://localhost:3000';
+        // ──────────────────────────────────────────────────────────────
+
+        const POINTS = 80;
+        let chartData = Array.from({ length: POINTS }, () => Math.random() * 0.005);
+        let alarmOn = false;
+        let injectQuake = false;
+        let injectStep = false;
+        let injectDoor = false;
+
+        // ─── CHART SETUP ──────────────────────────────────────────────
+        const ctx = document.getElementById('seismicChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.map((_, i) => i),
+                datasets: [{
+                    data: [...chartData],
+                    borderColor: '#00d4a0',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: 'rgba(0,212,160,0.05)',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        min: 0, max: 0.05,
+                        ticks: { color: '#6b7280', font: { family: 'Space Mono', size: 10 }, callback: v => v.toFixed(3) },
+                        grid: { color: 'rgba(255,255,255,0.04)' }
+                    }
+                }
+            }
+        });
+
+        // ─── DEMO TRIGGERS ────────────────────────────────────────────
+        function triggerQuake() {
+            injectQuake = true;
+            setTimeout(() => { injectQuake = false; }, 3000);
+        }
+        function triggerStep() {
+            injectStep = true;
+            setTimeout(() => { injectStep = false; }, 600);
+        }
+        function triggerDoor() {
+            injectDoor = true;
+            setTimeout(() => { injectDoor = false; }, 400);
+            addEvent('warn', 'Door slam — Z 2.1', '0.041g');
+        }
+
+        // ─── ALARM STATE ──────────────────────────────────────────────
+        function setAlarm(on) {
+            alarmOn = on;
+            const pill = document.getElementById('status-pill');
+            const overlay = document.getElementById('alarm-overlay');
+            if (on) {
+                pill.className = 'status-pill alarm';
+                document.getElementById('status-text').textContent = '⚠ SEISMIC ALARM';
+                overlay.style.display = 'block';
+                chart.data.datasets[0].borderColor = '#ff4040';
+                chart.data.datasets[0].backgroundColor = 'rgba(255,64,64,0.07)';
+                chart.options.scales.y.max = 3;
+                addEvent('alarm', 'SEISMIC EVENT — Z 6.2 · STA/LTA 4.8', '2.50g');
+                updateMLDisplay('SEISMIC', '94.1%', '#ff4040', '1.8ms');
+                sendPushDemo();
+            } else {
+                pill.className = 'status-pill';
+                document.getElementById('status-text').textContent = 'ARMED · MONITORING';
+                overlay.style.display = 'none';
+                chart.data.datasets[0].borderColor = '#00d4a0';
+                chart.data.datasets[0].backgroundColor = 'rgba(0,212,160,0.05)';
+                chart.options.scales.y.max = 0.05;
+                updateMLDisplay('NORMAL', '97.2%', '#00d4a0', '1.2ms');
+            }
+        }
+
+        function updateMLDisplay(pred, conf, color, latency) {
+            document.getElementById('ml-pred').textContent = pred;
+            document.getElementById('ml-pred').style.color = color;
+            document.getElementById('ml-conf-val').textContent = conf;
+            document.getElementById('ml-conf-bar').style.width = conf;
+            document.getElementById('ml-latency').textContent = latency;
+            document.getElementById('m-ml').textContent = pred;
+            document.getElementById('m-ml').className = 'metric-value ' + (pred === 'NORMAL' ? 'ok' : 'danger');
+            document.getElementById('m-conf').textContent = '● CONF: ' + conf;
+        }
+
+        // ─── EVENT LOG ────────────────────────────────────────────────
+        function addEvent(type, desc, mag) {
+            const list = document.getElementById('event-list');
+            const now = new Date().toTimeString().slice(0, 8);
+            const badgeClass = { alarm: 'evt-alarm', warn: 'evt-warn', ok: 'evt-ok', ml: 'evt-ml' }[type] || 'evt-ok';
+            const badgeText = { alarm: 'ALARM', warn: 'WARN', ok: 'OK', ml: 'ML:OK' }[type] || 'OK';
+            const div = document.createElement('div');
+            div.className = 'event-item';
+            div.innerHTML = `
+    <span class="evt-time">${now}</span>
+    <span class="evt-badge ${badgeClass}">${badgeText}</span>
+    <span class="evt-desc">${desc}</span>
+    <span class="evt-mag">${mag}</span>`;
+            list.prepend(div);
+            while (list.children.length > 8) list.removeChild(list.lastChild);
+        }
+
+        // ─── SETTINGS PUSH ────────────────────────────────────────────
+        function updateThresholds() { }
+        function pushThresholds() {
+            const payload = {
+                zThreshold: parseFloat(document.getElementById('thr-z').value),
+                staltatreshold: parseFloat(document.getElementById('thr-stalta').value),
+                ltaWindow: parseInt(document.getElementById('thr-lta').value),
+                alarmLatch: parseInt(document.getElementById('thr-latch').value),
+                mlEnabled: document.getElementById('thr-ml').value === 'true'
+            };
+            // POST to server → server pushes to ESP32 via MQTT
+            fetch(SERVER_URL + '/api/thresholds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => alert('Thresholds pushed to device!')).catch(() => alert('Server offline — demo mode'));
+        }
+
+        // ─── PUSH NOTIFICATION DEMO ───────────────────────────────────
+        function sendPushDemo() {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('⚠ LocalQuakeAlert', {
+                    body: 'Seismic event detected! Z=6.2 · Almaty Unit 1',
+                    icon: '/icon-192.png'
+                });
+            }
+        }
+        // Request permission on load
+        if ('Notification' in window) Notification.requestPermission();
+
+        // ─── WEBSOCKET (connects to server.js) ────────────────────────
+        function connectWS() {
+            try {
+                const ws = new WebSocket(WS_URL);
+                ws.onmessage = (e) => {
+                    const d = JSON.parse(e.data);
+                    // d = { mag, stalta, zscore, alarm, ml_prediction, ml_confidence }
+                    updateFromData(d);
+                };
+                ws.onclose = () => setTimeout(connectWS, 3000); // auto-reconnect
+            } catch (e) {
+                // server not running — demo mode continues
+            }
+        }
+        connectWS();
+
+        function updateFromData(d) {
+            document.getElementById('m-mag').textContent = d.mag.toFixed(4);
+            document.getElementById('m-stalta').textContent = d.stalta.toFixed(2);
+            document.getElementById('m-zscore').textContent = d.zscore.toFixed(1);
+            if (d.alarm && !alarmOn) { setAlarm(true); setTimeout(() => setAlarm(false), 5000); }
+            if (d.ml_prediction) updateMLDisplay(d.ml_prediction, (d.ml_confidence * 100).toFixed(1) + '%',
+                d.ml_prediction === 'NORMAL' ? '#00d4a0' : '#ff4040', '1.5ms');
+            chartData.push(d.mag);
+            chartData.shift();
+            chart.data.datasets[0].data = [...chartData];
+            chart.update();
+        }
+
+        // ─── DEMO LOOP (when no real hardware) ────────────────────────
+        let alarmTimer = null;
+        setInterval(() => {
+            let val;
+            if (injectQuake) {
+                val = 1.5 + Math.random() * 1.2;
+                if (!alarmOn) {
+                    setAlarm(true);
+                    if (alarmTimer) clearTimeout(alarmTimer);
+                    alarmTimer = setTimeout(() => setAlarm(false), 5000);
+                }
+            } else if (injectStep) {
+                val = 0.02 + Math.random() * 0.03;
+            } else if (injectDoor) {
+                val = 0.04 + Math.random() * 0.02;
+            } else {
+                val = Math.random() * 0.005;
+            }
+
+            chartData.push(val);
+            chartData.shift();
+
+            const mag = chartData[chartData.length - 1];
+            const stalta = injectQuake ? 4.8 : (1.0 + Math.random() * 0.15);
+            const zscore = injectQuake ? 6.2 : (0.2 + Math.random() * 0.3);
+
+            document.getElementById('m-mag').textContent = mag.toFixed(4);
+            document.getElementById('m-stalta').textContent = stalta.toFixed(2);
+            document.getElementById('m-zscore').textContent = zscore.toFixed(1);
+
+            chart.data.datasets[0].data = [...chartData];
+            chart.update();
+        }, 200);
+    </script>
+</body>
+
+</html>

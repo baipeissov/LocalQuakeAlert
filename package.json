@@ -1,0 +1,27 @@
+{
+  "name": "fiztex_hack",
+  "version": "1.0.0",
+  "description": "- `dashboard.html` — web dashboard (open in browser or serve via server.js) - `app.html`        — mobile PWA app (install on phone as app) - `server.js`       — Node.js backend: MQTT + WebSocket + Telegram + ML - `sw.js`           — Service worker for background push notifications",
+  "main": "Server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baipeissov/LocalQuakeAlert.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/baipeissov/LocalQuakeAlert/issues"
+  },
+  "homepage": "https://github.com/baipeissov/LocalQuakeAlert#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "mqtt": "^5.15.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "ws": "^8.20.0"
+  }
+}

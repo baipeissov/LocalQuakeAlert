@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0c10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LQAlert">
+<title>LocalQuakeAlert</title>
+
+<!-- PWA Manifest (inline for single-file deploy) -->
+<script>
+const manifest = {
+  name: "LocalQuakeAlert",
+  short_name: "LQAlert",
+  description: "Seismic early warning system",
+  start_url: "/app.html",
+  display: "standalone",
+  background_color: "#0a0c10",
+  theme_color: "#00d4a0",
+  orientation: "portrait",
+  icons: [
+    { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%230a0c10'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='100' fill='%2300d4a0'>⟁</text></svg>", sizes: "192x192", type: "image/svg+xml" }
+  ]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+const link = document.createElement('link');
+link.rel = 'manifest';
+link.href = URL.createObjectURL(blob);
+document.head.appendChild(link);
+</script>
+
+<style>
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #181c24;
+    --border: rgba(255,255,255,0.08); --text: #e8eaf0; --muted: #6b7280;
+    --accent: #00d4a0; --danger: #ff4040; --warn: #f59e0b; --info: #60a5fa;
+    --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px;
+    display: flex; flex-direction: column;
+    max-width: 430px; margin: 0 auto;
+    position: relative;
+  }
+
+  /* HEADER */
+  .app-header {
+    padding: 52px 20px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .app-header-row { display: flex; align-items: center; justify-content: space-between; }
+  .app-logo { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--accent); }
+  .notif-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-size: 16px;
+  }
+  .status-bar {
+    margin-top: 14px;
+    background: rgba(0,212,160,0.07);
+    border: 1px solid rgba(0,212,160,0.2);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all 0.3s;
+  }
+  .status-bar.alarm {
+    background: rgba(255,64,64,0.1);
+    border-color: rgba(255,64,64,0.4);
+    animation: alarmPulse 1s infinite;
+  }
+  @keyframes alarmPulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+  .status-left { display: flex; align-items: center; gap: 10px; }
+  .status-indicator {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .status-bar.alarm .status-indicator { background: var(--danger); }
+  .status-title { font-weight: 500; font-size: 14px; }
+  .status-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .status-time { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* SCROLL AREA */
+  .scroll-area { flex: 1; overflow-y: auto; padding: 16px; }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .card-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
+
+  /* METRIC GRID */
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric-item {
+    background: var(--surface2); border-radius: 10px; padding: 12px;
+    border: 1px solid var(--border);
+  }
+  .metric-item-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-family: var(--mono); }
+  .metric-item-val { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+  .ok { color: var(--accent); }
+  .danger { color: var(--danger); }
+  .warn { color: var(--warn); }
+  .info { color: var(--info); }
+
+  /* MINI CHART */
+  .chart-wrap { height: 120px; position: relative; margin-bottom: 4px; }
+
+  /* ML CARD */
+  .ml-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .ml-row:last-child { border-bottom: none; }
+  .ml-key { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .ml-val { font-family: var(--mono); }
+  .conf-bar-wrap { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+  .conf-bar-fill { height: 100%; background: linear-gradient(90deg, #0066ff, var(--accent)); border-radius: 2px; transition: width 1s ease; }
+
+  /* EVENT LIST */
+  .evt { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .evt:last-child { border-bottom: none; }
+  .evt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .evt-body { flex: 1; }
+  .evt-type { font-weight: 500; font-size: 12px; }
+  .evt-details { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
+  .evt-t { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+  /* ALARM BANNER */
+  .alarm-banner {
+    display: none; margin-bottom: 12px;
+    background: rgba(255,64,64,0.1); border: 1px solid rgba(255,64,64,0.4);
+    border-radius: 14px; padding: 16px;
+  }
+  .alarm-banner.show { display: block; animation: slideDown 0.3s ease; }
+  @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .alarm-title { font-family: var(--mono); font-size: 14px; color: var(--danger); font-weight: 700; margin-bottom: 6px; }
+  .alarm-detail { font-family: var(--mono); font-size: 11px; color: rgba(255,64,64,0.8); line-height: 1.6; }
+  .alarm-dismiss {
+    margin-top: 12px; width: 100%; padding: 9px;
+    background: rgba(255,64,64,0.15); border: 1px solid rgba(255,64,64,0.3);
+    color: var(--danger); border-radius: 8px; cursor: pointer;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em;
+  }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    display: flex; background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 0 24px; flex-shrink: 0;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 0; cursor: pointer; transition: all 0.2s;
+    border: none; background: none; color: var(--muted);
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-icon { font-size: 20px; }
+  .nav-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em; }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* SETTINGS SCREEN */
+  .settings-group { margin-bottom: 16px; }
+  .settings-group-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); padding: 8px 0 6px; }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 13px 14px; margin-bottom: 6px;
+  }
+  .setting-name { font-size: 13px; }
+  .setting-val {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--accent); font-family: var(--mono); font-size: 12px;
+    width: 64px; text-align: right; padding: 4px 8px; border-radius: 6px;
+    outline: none;
+  }
+  .toggle {
+    width: 40px; height: 22px; border-radius: 11px;
+    background: var(--surface2); border: 1px solid var(--border);
+    position: relative; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--surface); transition: left 0.2s;
+  }
+  .toggle.on .toggle-thumb { left: 20px; background: var(--bg); }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- HEADER (shared) -->
+<div class="app-header">
+  <div class="app-header-row">
+    <div class="app-logo">⟁ LOCALQUAKEALERT</div>
+    <div class="notif-btn" id="notif-btn" onclick="requestNotifPermission()">🔔</div>
+  </div>
+  <div class="status-bar" id="status-bar">
+    <div class="status-left">
+      <div class="status-indicator" id="status-indicator"></div>
+      <div>
+        <div class="status-title" id="status-title">Armed · Monitoring</div>
+        <div class="status-sub" id="status-sub">ALMATY UNIT-01 · 100Hz · SW420+MPU6050</div>
+      </div>
+    </div>
+    <div class="status-time" id="status-time">—</div>
+  </div>
+</div>
+
+<!-- SCROLL AREA -->
+<div class="scroll-area">
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="screen-home">
+    <!-- ALARM BANNER (hidden by default) -->
+    <div class="alarm-banner" id="alarm-banner">
+      <div class="alarm-title">⚠ SEISMIC ALARM</div>
+      <div class="alarm-detail" id="alarm-detail">
+        Z-score: 6.2 · STA/LTA: 4.8<br>
+        Magnitude: 2.50g<br>
+        Detected: —
+      </div>
+      <button class="alarm-dismiss" onclick="dismissAlarm()">ACKNOWLEDGE / DISMISS</button>
+    </div>
+
+    <!-- METRICS -->
+    <div class="card">
+      <div class="card-title">LIVE READINGS</div>
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-item-label">MAGNITUDE</div>
+          <div class="metric-item-val ok" id="m-mag">0.003g</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-item-label">STA/LTA</div>
+          <div class="metric-item-val ok" id="m-stalta">1.02</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-item-label">Z-SCORE</div>
+          <div class="metric-item-val ok" id="m-zscore">0.3</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-item-label">ML MODEL</div>
+          <div class="metric-item-val ok" id="m-ml">NORMAL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MINI CHART -->
+    <div class="card">
+      <div class="card-title">SEISMIC FEED</div>
+      <div class="chart-wrap">
+        <canvas id="miniChart"></canvas>
+      </div>
+    </div>
+
+    <!-- ML CARD -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(0,102,255,0.06), rgba(0,212,160,0.04)); border-color: rgba(0,102,255,0.2)">
+      <!-- ML MODEL RESULTS — see server.js runMLModel() to plug in your model -->
+      <div class="card-title" style="color:#60a5fa">🧠 ML CLASSIFIER</div>
+      <div class="ml-row">
+        <span class="ml-key">PREDICTION</span>
+        <span class="ml-val ok" id="ml-pred">NORMAL</span>
+      </div>
+      <div class="ml-row">
+        <span class="ml-key">CONFIDENCE</span>
+        <span class="ml-val" id="ml-conf">97.2%</span>
+      </div>
+      <div class="ml-row">
+        <span class="ml-key">LATENCY</span>
+        <span class="ml-val" id="ml-latency">1.2ms</span>
+      </div>
+      <div class="conf-bar-wrap">
+        <div class="conf-bar-fill" id="conf-fill" style="width:97.2%"></div>
+      </div>
+    </div>
+
+    <!-- DEMO BUTTONS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button onclick="triggerQuake()" style="padding:12px;background:rgba(255,64,64,0.1);border:1px solid rgba(255,64,64,0.3);color:#ff4040;border-radius:10px;font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.05em">⚡ SIMULATE QUAKE</button>
+      <button onclick="triggerStep()" style="padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.05em">👟 FOOTSTEP</button>
+    </div>
+  </div>
+
+  <!-- LOG SCREEN -->
+  <div class="screen" id="screen-log">
+    <div class="card">
+      <div class="card-title">EVENT LOG</div>
+      <div id="event-list">
+        <div class="evt">
+          <div class="evt-dot" style="background:var(--accent)"></div>
+          <div class="evt-body">
+            <div class="evt-type">Normal — footstep filtered</div>
+            <div class="evt-details">MAG 0.024g · Z 0.4 · ML:NORMAL</div>
+          </div>
+          <div class="evt-t">09:42:11</div>
+        </div>
+        <div class="evt">
+          <div class="evt-dot" style="background:var(--warn)"></div>
+          <div class="evt-body">
+            <div class="evt-type">Warning — door slam</div>
+            <div class="evt-details">MAG 0.041g · Z 2.1 · ML:NOISE</div>
+          </div>
+          <div class="evt-t">09:38:05</div>
+        </div>
+        <div class="evt">
+          <div class="evt-dot" style="background:var(--info)"></div>
+          <div class="evt-body">
+            <div class="evt-type">ML override — truck traffic</div>
+            <div class="evt-details">MAG 0.018g · Z 1.9 · ML:NOISE 91%</div>
+          </div>
+          <div class="evt-t">09:22:17</div>
+        </div>
+        <div class="evt">
+          <div class="evt-dot" style="background:var(--accent)"></div>
+          <div class="evt-body">
+            <div class="evt-type">Normal — baseline</div>
+            <div class="evt-details">MAG 0.003g · Z 0.2 · ML:NORMAL</div>
+          </div>
+          <div class="evt-t">09:12:48</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div class="screen" id="screen-settings">
+    <div class="settings-group">
+      <div class="settings-group-title">DETECTION THRESHOLDS</div>
+      <div class="setting-row">
+        <span class="setting-name">Z-score threshold</span>
+        <input class="setting-val" id="s-z" value="3.5">
+      </div>
+      <div class="setting-row">
+        <span class="setting-name">STA/LTA threshold</span>
+        <input class="setting-val" id="s-stalta" value="2.5">
+      </div>
+      <div class="setting-row">
+        <span class="setting-name">Alarm latch (sec)</span>
+        <input class="setting-val" id="s-latch" value="30">
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-title">ML MODEL</div>
+      <div class="setting-row">
+        <span class="setting-name">Enable ML classifier</span>
+        <div class="toggle on" id="tog-ml" onclick="toggle('tog-ml')"><div class="toggle-thumb"></div></div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-name">ML overrides Z-score</span>
+        <div class="toggle on" id="tog-mloverride" onclick="toggle('tog-mloverride')"><div class="toggle-thumb"></div></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-title">NOTIFICATIONS</div>
+      <div class="setting-row">
+        <span class="setting-name">Push alerts</span>
+        <div class="toggle on" id="tog-push" onclick="toggle('tog-push')"><div class="toggle-thumb"></div></div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-name">Telegram bot</span>
+        <div class="toggle on" id="tog-tg" onclick="toggle('tog-tg')"><div class="toggle-thumb"></div></div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-name">SMS fallback</span>
+        <div class="toggle" id="tog-sms" onclick="toggle('tog-sms')"><div class="toggle-thumb"></div></div>
+      </div>
+    </div>
+    <div style="padding:0 0 16px">
+      <button onclick="pushSettings()" style="width:100%;padding:13px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.3);color:var(--accent);border-radius:10px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;cursor:pointer">
+        PUSH TO DEVICE →
+      </button>
+    </div>
+  </div>
+
+</div><!-- end scroll-area -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="nav-home" onclick="switchTab('home')">
+    <span class="nav-icon">⟁</span>
+    <span class="nav-label">HOME</span>
+  </button>
+  <button class="nav-item" id="nav-log" onclick="switchTab('log')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">LOG</span>
+  </button>
+  <button class="nav-item" id="nav-settings" onclick="switchTab('settings')">
+    <span class="nav-icon">⚙</span>
+    <span class="nav-label">SETTINGS</span>
+  </button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────
+const SERVER_URL = 'http://localhost:3000';
+const WS_URL     = 'ws://localhost:3000';
+// ─────────────────────────────────────────────────────────────
+
+// Clock
+setInterval(() => {
+  document.getElementById('status-time').textContent = new Date().toTimeString().slice(0,8);
+}, 1000);
+
+// ─── MINI CHART ──────────────────────────────────────────────
+const POINTS = 50;
+let chartData = Array.from({length:POINTS}, () => Math.random() * 0.005);
+const ctx = document.getElementById('miniChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: chartData.map((_,i)=>i),
+    datasets: [{ data:[...chartData], borderColor:'#00d4a0', borderWidth:1.5,
+      pointRadius:0, fill:true, backgroundColor:'rgba(0,212,160,0.06)', tension:0.3 }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false, animation:{duration:0},
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{display:false},
+      y:{min:0,max:0.05,display:false}
+    }
+  }
+});
+
+// ─── ALARM ───────────────────────────────────────────────────
+let alarmOn = false;
+function triggerAlarm(mag, zscore, stalta) {
+  alarmOn = true;
+  const bar = document.getElementById('status-bar');
+  bar.className = 'status-bar alarm';
+  document.getElementById('status-title').textContent = '⚠ SEISMIC ALARM';
+  document.getElementById('alarm-banner').classList.add('show');
+  const t = new Date().toTimeString().slice(0,8);
+  document.getElementById('alarm-detail').innerHTML =
+    `Z-score: ${zscore} · STA/LTA: ${stalta}<br>Magnitude: ${mag}g<br>Detected: ${t}`;
+  chart.data.datasets[0].borderColor = '#ff4040';
+  chart.data.datasets[0].backgroundColor = 'rgba(255,64,64,0.06)';
+  chart.options.scales.y.max = 3;
+  updateMetrics(mag, stalta, zscore, 'SEISMIC', '94.1%');
+  addLogEvent('danger', 'ALARM — seismic event', `MAG ${mag}g · Z ${zscore} · STA/LTA ${stalta}`);
+  sendPush(`⚠ Seismic alarm! Z=${zscore} · Almaty Unit-01`);
+}
+
+function dismissAlarm() {
+  alarmOn = false;
+  document.getElementById('status-bar').className = 'status-bar';
+  document.getElementById('status-title').textContent = 'Armed · Monitoring';
+  document.getElementById('alarm-banner').classList.remove('show');
+  chart.data.datasets[0].borderColor = '#00d4a0';
+  chart.data.datasets[0].backgroundColor = 'rgba(0,212,160,0.06)';
+  chart.options.scales.y.max = 0.05;
+}
+
+function updateMetrics(mag, stalta, zscore, mlPred, mlConf) {
+  document.getElementById('m-mag').textContent    = parseFloat(mag).toFixed(4)+'g';
+  document.getElementById('m-stalta').textContent = parseFloat(stalta).toFixed(2);
+  document.getElementById('m-zscore').textContent = parseFloat(zscore).toFixed(1);
+  document.getElementById('m-ml').textContent     = mlPred;
+  document.getElementById('m-ml').className       = 'metric-item-val ' + (mlPred==='NORMAL'?'ok':'danger');
+  document.getElementById('ml-pred').textContent  = mlPred;
+  document.getElementById('ml-pred').className    = 'ml-val ' + (mlPred==='NORMAL'?'ok':'danger');
+  document.getElementById('ml-conf').textContent  = mlConf;
+  document.getElementById('conf-fill').style.width = mlConf;
+}
+
+// ─── DEMO ────────────────────────────────────────────────────
+let injectQuake=false, injectStep=false;
+function triggerQuake(){ injectQuake=true; setTimeout(()=>injectQuake=false,3000); }
+function triggerStep(){ injectStep=true; setTimeout(()=>injectStep=false,600); }
+
+let alarmFired = false;
+setInterval(() => {
+  let val;
+  if (injectQuake) {
+    val = 1.5 + Math.random() * 1.2;
+    if (!alarmFired) { alarmFired=true; triggerAlarm('2.50','6.2','4.8'); setTimeout(()=>{alarmFired=false;},5000); }
+  } else if (injectStep) {
+    val = 0.02 + Math.random() * 0.03;
+  } else {
+    val = Math.random() * 0.005;
+    updateMetrics(val.toFixed(4), (1.0+Math.random()*0.1).toFixed(2), (0.2+Math.random()*0.2).toFixed(1), 'NORMAL', '97.2%');
+  }
+  chartData.push(val); chartData.shift();
+  chart.data.datasets[0].data = [...chartData];
+  chart.update();
+}, 200);
+
+// ─── WEBSOCKET ───────────────────────────────────────────────
+function connectWS() {
+  try {
+    const ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      // d = { mag, stalta, zscore, alarm, ml_prediction, ml_confidence }
+      updateMetrics(d.mag, d.stalta, d.zscore, d.ml_prediction || 'NORMAL', ((d.ml_confidence||0.97)*100).toFixed(1)+'%');
+      if (d.alarm && !alarmOn) triggerAlarm(d.mag.toFixed(2), d.zscore.toFixed(1), d.stalta.toFixed(1));
+      chartData.push(d.mag); chartData.shift();
+      chart.data.datasets[0].data = [...chartData];
+      chart.update();
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch(e) {}
+}
+connectWS();
+
+// ─── PUSH NOTIFICATIONS ──────────────────────────────────────
+function requestNotifPermission() {
+  if ('Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') alert('Push notifications enabled!');
+    });
+  }
+  // Register service worker for background push
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+}
+function sendPush(msg) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('LocalQuakeAlert', { body: msg, icon: '/icon-192.png' });
+  }
+}
+
+// ─── EVENT LOG ───────────────────────────────────────────────
+function addLogEvent(type, title, detail) {
+  const colors = { danger:'var(--danger)', warn:'var(--warn)', ok:'var(--accent)', info:'var(--info)' };
+  const list = document.getElementById('event-list');
+  const t = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = 'evt';
+  div.innerHTML = `
+    <div class="evt-dot" style="background:${colors[type]||colors.ok}"></div>
+    <div class="evt-body">
+      <div class="evt-type">${title}</div>
+      <div class="evt-details">${detail}</div>
+    </div>
+    <div class="evt-t">${t}</div>`;
+  list.prepend(div);
+  while(list.children.length > 10) list.removeChild(list.lastChild);
+}
+
+// ─── NAV ─────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['home','log','settings'].forEach(t => {
+    document.getElementById('screen-'+t).className = 'screen' + (t===tab?' active':'');
+    document.getElementById('nav-'+t).className = 'nav-item' + (t===tab?' active':'');
+  });
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('on');
+}
+function pushSettings() {
+  const payload = {
+    zThreshold: parseFloat(document.getElementById('s-z').value),
+    staltatreshold: parseFloat(document.getElementById('s-stalta').value),
+    alarmLatch: parseInt(document.getElementById('s-latch').value),
+    mlEnabled: document.getElementById('tog-ml').classList.contains('on'),
+    mlOverride: document.getElementById('tog-mloverride').classList.contains('on')
+  };
+  fetch(SERVER_URL + '/api/thresholds', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(()=>alert('Settings pushed!')).catch(()=>alert('Server offline — settings saved locally'));
+  localStorage.setItem('lqa_settings', JSON.stringify(payload));
+}
+</script>
+</body>
+</html>
