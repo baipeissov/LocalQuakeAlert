@@ -326,8 +326,8 @@ server.listen(CONFIG.port, () => {
     console.log(`│  WS:   ws://localhost:${CONFIG.port}            │`);
     console.log(`│  MQTT: ${CONFIG.mqttBroker}  │`);
     console.log(`└─────────────────────────────────────┘\n`);
-    console.log('Dashboard: http://localhost:3000/dashboard.html');
-    console.log('Mobile app: http://localhost:3000/app.html\n');
+    console.log('Dashboard: http://localhost:3000/Dashboard.html');
+    console.log('Mobile app: http://localhost:3000/App.html\n');
 });
 
 // ─── DEMO MODE — send fake data every 200ms if no ESP32 connected ─────────────
